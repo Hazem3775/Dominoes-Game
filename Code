@@ -1,0 +1,401 @@
+import random
+
+# === Start ===
+print('=' * 23)
+p = "Dominoes Game"
+print(p.center(len(p) + 10, "="))
+print('=' * 23)
+print("""Welcome to Dominoes! 🎲
+
+In this game, you and the bot will take turns playing dominoes. The goal is to be the first to play all of your dominoes. You can place a domino on the board if its number matches one of the numbers on the ends of the board. If you can't play, you can draw from the boneyard (a pile of remaining dominoes).
+
+You can choose to play a domino on the left or right end of the board. The game ends when either player has no dominoes left or if neither player can make a move and the boneyard is empty.
+
+Let's get started and have fun!""")  # info
+Player_One_Name = input("Enter Your name Player One: ").strip().capitalize()  # User Input his Name
+print(f"Welcome {Player_One_Name} to the Dominoes game Demo!")  # Welcoming the User
+
+cards = [(i, j) for i in range(7) for j in range(i, 7)]  # ===The Game Cards
+random.shuffle(cards)  # ===Func. to shuffle the Cards randomly
+
+
+# ===Func. to shuffle the Cards randomly between Player 1 & 2 ===
+def deal_cards(cards):
+    player1_hand = cards[:7]
+    player2_hand = cards[7:14]
+    boneyard = cards[14:]
+    return player1_hand, player2_hand, boneyard  # === return Func. till needed ===
+
+
+# === empty list to add the cards in it ===
+Board = []
+
+
+def can_player_move(player_hand, Board):
+    #Check if player has any valid moves
+    if not Board:
+        return True
+    left, right = Board[0][0], Board[-1][1]
+    for card in player_hand:
+        if card[0] == left or card[1] == left or card[0] == right or card[1] == right:
+            return True
+    return False
+
+
+# === winner case or Game Over Draw case ===
+def winner_case(Board, player1_hand, player2_hand, boneyard):
+    # Check if either player has no dominoes left
+    if len(player1_hand) == 0:
+        print(f"{Player_One_Name} has no more dominoes!")
+        return True  # Player wins
+
+    if len(player2_hand) == 0:
+        print("Bot has no more dominoes!")
+        return True  # Bot wins
+
+    # Check if neither player can make a move and the boneyard is empty
+    if not can_player_move(player1_hand, Board) and not can_player_move(player2_hand, Board) and len(boneyard) == 0:
+        print("Neither player can move, game ends!")
+        return True  # It's a draw or another game-ending condition
+
+    return False  # Game continues
+
+
+# === Function contains all possible legal moves and how to move (L/R) ? ===
+def has_valid_move(player_hand, Board):
+    return can_player_move(player_hand, Board)
+
+
+# adding to board logic
+def valid_moves(player_hand, Board):
+    moves = []
+    if not Board:
+        return player_hand
+    left, right = Board[0][0], Board[-1][1]
+    for card in player_hand:
+        if card[0] == left or card[1] == left or card[0] == right or card[1] == right:
+            moves.append(card)
+    return moves
+
+
+def play_card(Board, card, side):
+    if side == 'L':
+        if Board:
+            if card[1] == Board[0][0]:
+                Board.insert(0, card)
+            else:
+                Board.insert(0, (card[1], card[0]))
+        else:
+            Board.insert(0, card)  # If the board is empty, just add the card
+    else:
+        if Board:
+            if card[0] == Board[-1][1]:
+                Board.append(card)
+            else:
+                Board.append((card[1], card[0]))
+        else:
+            Board.append(card)  # If the board is empty, just add the card
+
+
+# === User Turn ===
+def player_turn(player_name, player_hand, Board, boneyard):
+    print(f"\n{player_name}'s Turn:")
+    print(f"Board: {Board}")
+    index = 1
+    for card in player_hand:  # for loop to display the Cards in good view
+        print(f"{index} - {card}")
+        index += 1
+    print(f"Bot (remaining cards): {len(player2_hand)} cards left.")
+    print(f"Boneyard (remaining cards): {len(boneyard)} cards left.")  # ---Display boneyard counter---
+
+    if not has_valid_move(player_hand, Board):
+        if boneyard:
+            drawn_card = boneyard.pop()
+            player_hand.append(drawn_card)
+            print(f"No move! Drew card {drawn_card}.")
+        else:
+            print("No moves and no boneyard. Passing turn.")
+        return
+
+    while True:
+        choice = input("Pick a card to play (format 'x,y') or 'pass' to draw: ").strip().lower()
+        if choice == 'pass':
+            if boneyard:
+                drawn_card = boneyard.pop()
+                player_hand.append(drawn_card)
+                print(f"Drew card {drawn_card}.")
+                return
+            else:
+                print("Boneyard empty! Must play a card.")
+                continue
+
+        try:
+            n1, n2 = map(int, choice.split(","))
+            card = (n1, n2) if (n1, n2) in player_hand else (n2, n1) if (n2, n1) in player_hand else None
+            if not card:
+                print("You don't have that card.")
+                continue
+        except ValueError:
+            print("Invalid input! Use x,y format.")
+            continue
+
+        possible_moves = valid_moves(player_hand, Board)
+        if card not in possible_moves:
+            print("This card cannot be played.")
+            continue
+
+        # ==== Choose side the logic for when a card can be played on either the left or right end of the board ====
+        if Board and (card[0] == Board[0][0] or card[1] == Board[0][0]) and (
+                card[0] == Board[-1][1] or card[1] == Board[-1][1]):
+            side = input("Card fits both ends. Play Left (L) or Right (R)? ").strip().upper()
+            while side not in ('L', 'R'):
+                side = input("Invalid. Type 'L' or 'R': ").strip().upper()
+        elif Board and (card[0] == Board[0][0] or card[1] == Board[0][0]):
+            side = 'L'
+        else:
+            side = 'R'
+
+        play_card(Board, card, side)
+        player_hand.remove(card)
+        print(f"Played {card} on {side}.")
+        break
+
+
+def evaluate_game_state(player_hand, opponent_hand, Board, boneyard):
+    """
+    Evaluation function for the Alpha-Beta algorithm.
+    Higher scores are better for the bot (player_hand).
+    """
+    score = 0
+
+    # Favor states where bot has fewer dominoes
+    score += (len(opponent_hand) - len(player_hand)) * 10
+
+    # Favor states where opponent has fewer options
+    opponent_moves = len(valid_moves(opponent_hand, Board))
+    score -= opponent_moves * 2
+
+    # Favor having high-value dominoes (especially doubles)
+    for card in player_hand:
+        if card[0] == card[1]:  # double
+            score += card[0] * 2
+        else:
+            score += (card[0] + card[1]) / 2
+
+    # Penalize having unplayable dominoes
+    for card in player_hand:
+        if not Board:
+            continue
+        left, right = Board[0][0], Board[-1][1]
+        if not (card[0] == left or card[1] == left or card[0] == right or card[1] == right):
+            score -= 1
+
+    return score
+
+
+def alpha_beta(player_hand, opponent_hand, Board, boneyard, depth, alpha, beta, maximizing_player):
+    if depth == 0 or winner_case(Board, player_hand, opponent_hand, boneyard):
+        return evaluate_game_state(player_hand, opponent_hand, Board, boneyard), None, None
+
+    best_move = None
+    best_side = None
+
+    if maximizing_player:
+        max_eval = float('-inf')
+        valid_moves_list = valid_moves(player_hand, Board)
+
+        if not valid_moves_list:
+            # No moves available, try drawing from boneyard
+            if boneyard:
+                new_player_hand = player_hand.copy()
+                new_boneyard = boneyard.copy()
+                drawn_card = new_boneyard.pop()
+                new_player_hand.append(drawn_card)
+                eval_score, _, _ = alpha_beta(new_player_hand, opponent_hand, Board.copy(), new_boneyard, depth - 1,
+                                              alpha, beta, False)
+                if eval_score > max_eval:
+                    max_eval = eval_score
+                    best_move = 'draw'
+            else:
+                # Pass turn
+                eval_score, _, _ = alpha_beta(player_hand.copy(), opponent_hand.copy(), Board.copy(), boneyard.copy(),
+                                              depth - 1, alpha, beta, False)
+                if eval_score > max_eval:
+                    max_eval = eval_score
+                    best_move = 'pass'
+        else:
+            for move in valid_moves_list:
+                # Try playing on left side if possible
+                if not Board or (move[0] == Board[0][0] or move[1] == Board[0][0]):
+                    new_board = Board.copy()
+                    new_player_hand = player_hand.copy()
+                    play_card(new_board, move, 'L')
+                    new_player_hand.remove(move)
+                    eval_score, _, _ = alpha_beta(new_player_hand, opponent_hand.copy(), new_board, boneyard.copy(),
+                                                  depth - 1, alpha, beta, False)
+                    if eval_score > max_eval:
+                        max_eval = eval_score
+                        best_move = move
+                        best_side = 'L'
+                    alpha = max(alpha, eval_score)
+                    if beta <= alpha:
+                        break
+
+                # Try playing on right side if possible and different from left
+                if Board and (move[0] == Board[-1][1] or move[1] == Board[-1][1]) and (
+                        move[0] != Board[0][0] and move[1] != Board[0][0]):
+                    new_board = Board.copy()
+                    new_player_hand = player_hand.copy()
+                    play_card(new_board, move, 'R')
+                    new_player_hand.remove(move)
+                    eval_score, _, _ = alpha_beta(new_player_hand, opponent_hand.copy(), new_board, boneyard.copy(),
+                                                  depth - 1, alpha, beta, False)
+                    if eval_score > max_eval:
+                        max_eval = eval_score
+                        best_move = move
+                        best_side = 'R'
+                    alpha = max(alpha, eval_score)
+                    if beta <= alpha:
+                        break
+
+        return max_eval, best_move, best_side
+    else:
+        min_eval = float('inf')
+        valid_moves_list = valid_moves(opponent_hand, Board)
+
+        if not valid_moves_list:
+            # Opponent has no moves, try drawing from boneyard
+            if boneyard:
+                new_opponent_hand = opponent_hand.copy()
+                new_boneyard = boneyard.copy()
+                drawn_card = new_boneyard.pop()
+                new_opponent_hand.append(drawn_card)
+                eval_score, _, _ = alpha_beta(player_hand.copy(), new_opponent_hand, Board.copy(), new_boneyard,
+                                              depth - 1, alpha, beta, True)
+                if eval_score < min_eval:
+                    min_eval = eval_score
+            else:
+                # Opponent passes turn
+                eval_score, _, _ = alpha_beta(player_hand.copy(), opponent_hand.copy(), Board.copy(), boneyard.copy(),
+                                              depth - 1, alpha, beta, True)
+                if eval_score < min_eval:
+                    min_eval = eval_score
+        else:
+            for move in valid_moves_list:
+                # Opponent plays on left side if possible
+                if not Board or (move[0] == Board[0][0] or move[1] == Board[0][0]):
+                    new_board = Board.copy()
+                    new_opponent_hand = opponent_hand.copy()
+                    play_card(new_board, move, 'L')
+                    new_opponent_hand.remove(move)
+                    eval_score, _, _ = alpha_beta(player_hand.copy(), new_opponent_hand, new_board, boneyard.copy(),
+                                                  depth - 1, alpha, beta, True)
+                    if eval_score < min_eval:
+                        min_eval = eval_score
+                    beta = min(beta, eval_score)
+                    if beta <= alpha:
+                        break
+
+                # Opponent plays on right side if possible and different from left
+                if Board and (move[0] == Board[-1][1] or move[1] == Board[-1][1]) and (
+                        move[0] != Board[0][0] and move[1] != Board[0][0]):
+                    new_board = Board.copy()
+                    new_opponent_hand = opponent_hand.copy()
+                    play_card(new_board, move, 'R')
+                    new_opponent_hand.remove(move)
+                    eval_score, _, _ = alpha_beta(player_hand.copy(), new_opponent_hand, new_board, boneyard.copy(),
+                                                  depth - 1, alpha, beta, True)
+                    if eval_score < min_eval:
+                        min_eval = eval_score
+                    beta = min(beta, eval_score)
+                    if beta <= alpha:
+                        break
+
+        return min_eval, None, None
+
+
+def bot_turn_with_alpha_beta(player_hand, Board, boneyard, opponent_hand):
+    print("\nBot is thinking...")
+    _, best_move, best_side = alpha_beta(player_hand, opponent_hand, Board, boneyard, depth=3, alpha=float('-inf'),
+                                         beta=float('inf'), maximizing_player=True)
+
+    if best_move == 'draw':
+        if boneyard:
+            drawn_card = boneyard.pop()
+            player_hand.append(drawn_card)
+            print(f"Bot drew a card from boneyard.")
+        else:
+            print("Bot has no moves and boneyard is empty. Passing turn.")
+        return
+
+    if best_move == 'pass':
+        print("Bot passes its turn.")
+        return
+
+    if best_move:
+        play_card(Board, best_move, best_side)
+        player_hand.remove(best_move)
+        print(f"Bot played {best_move} on {best_side}.")
+    else:
+        print("Bot couldn't find a valid move. Passing turn.")
+
+
+# === Game Loop ===
+player1_hand, player2_hand, boneyard = deal_cards(cards)
+
+
+# Determine who starts (player with highest double)
+def find_starting_player(p1_hand, p2_hand):
+    p1_doubles = [card for card in p1_hand if card[0] == card[1]]
+    p2_doubles = [card for card in p2_hand if card[0] == card[1]]
+
+    if p1_doubles and (not p2_doubles or max(p1_doubles) > max(p2_doubles)):
+        return "player1"
+    elif p2_doubles:
+        return "player2"
+    else:
+        return random.choice(["player1", "player2"])
+
+
+starting_player = find_starting_player(player1_hand, player2_hand)
+if starting_player == "player2":
+    print("\nBot has the highest double and will start first.")
+    bot_turn_with_alpha_beta(player2_hand, Board, boneyard, player1_hand)
+else:
+    print(f"\n{Player_One_Name} has the highest double and will start first.")
+
+def calculate_remaining_cards_sum(hand):
+    winning_score=0
+    for card in hand:
+        winning_score += card[0] + card[1]  # Sum the two numbers on the domino
+    return winning_score
+while True:
+    # Player's Turn
+    player_turn(Player_One_Name, player1_hand, Board, boneyard)
+    if winner_case(Board, player1_hand, player2_hand, boneyard):
+        if len(player1_hand) == 0:
+            print(f"\n🎉 {Player_One_Name} wins! 🎉")
+            print(f"winning score=>{calculate_remaining_cards_sum(player2_hand)}")
+        elif len(player2_hand) == 0:
+            print("\n😢 Bot wins! 😢")
+            print(f"winning score=>{calculate_remaining_cards_sum(player1_hand)}")
+        else:
+            print("\n🤝 Game ended in a draw! 🤝")
+            print(f"{Player_One_Name} Wins for Having least Score => {calculate_remaining_cards_sum(player2_hand+player1_hand)}" if player1_hand<player2_hand else  "Bot Wins for Having least Score => {calculate_remaining_cards_sum(player2_hand+player1_hand)")
+        break
+
+    # Bot's Turn
+    bot_turn_with_alpha_beta(player2_hand, Board, boneyard, player1_hand)
+    if winner_case(Board, player1_hand, player2_hand, boneyard):
+        if len(player1_hand) == 0:
+            print(f"\n🎉 {Player_One_Name} wins! 🎉")
+            print(f"winning score=>{calculate_remaining_cards_sum(player2_hand)}")
+        elif len(player2_hand) == 0:
+            print("\n😢 Bot wins! 😢")
+            print(f"winning score=>{calculate_remaining_cards_sum(player1_hand)}")
+        else:
+            print("\n🤝 Game ended in a draw! 🤝")
+            print(f"{Player_One_Name} Wins for Having least Score => {calculate_remaining_cards_sum(player2_hand + player1_hand)}" if player1_hand < player2_hand else "Bot Wins for Having least Score => {calculate_remaining_cards_sum(player2_hand+player1_hand)")
+        break
+
+
